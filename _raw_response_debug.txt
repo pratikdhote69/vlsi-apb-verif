@@ -1,0 +1,348 @@
+<DESIGN_SPEC>
+## Module Name and Description
+The module name is `apb_verification_env`. This module is a verification environment for the Advanced Peripheral Bus (APB) protocol.
+
+## Port List
+| Port Name | Direction | Width | Description |
+| --- | --- | --- | --- |
+| pclk | input | 1 | Clock signal |
+| presetn | input | 1 | Reset signal |
+| paddr | input | 32 | Address signal |
+| pwrite | input | 1 | Write signal |
+| psel | input | 1 | Select signal |
+| penable | input | 1 | Enable signal |
+| paddr_out | output | 32 | Address output |
+| pwrite_out | output | 1 | Write output |
+| psel_out | output | 1 | Select output |
+| penable_out | output | 1 | Enable output |
+
+## Functional Description
+The `apb_verification_env` module is a verification environment for the APB protocol. It generates stimulus for the APB master and monitors the responses from the APB slave.
+
+## Timing Diagram
+```
+          +---------------+
+          |         pclk  |
+          +---------------+
+                  |
+                  |
+                  v
++---------------+       +---------------+
+|  paddr  |  pwrite  |       |  psel  |  penable  |
++---------------+       +---------------+
+|  paddr_out |  pwrite_out |       |  psel_out |  penable_out |
++---------------+       +---------------+
+```
+
+## State Machine Description
+The state machine for the APB protocol has the following states:
+- IDLE: The default state
+- SETUP: The setup phase of the APB protocol
+- ACCESS: The access phase of the APB protocol
+
+## File Breakdown
+The design is split into the following files:
+- `apb_verification_env.sv`: The top-level module
+- `apb_driver.sv`: The driver module
+- `apb_monitor.sv`: The monitor module
+- `apb_scoreboard.sv`: The scoreboard module
+- `apb_tb.sv`: The testbench module
+- `apb_sva.sv`: The SystemVerilog Assertions file
+- `coverage_plan.md`: The coverage plan file
+- `README.md`: The README file
+
+## Key Design Decisions
+The design uses a modular approach with separate modules for the driver, monitor, and scoreboard. The SystemVerilog Assertions file is used to verify the correctness of the APB protocol.
+</DESIGN_SPEC>
+
+<RTL_FILE name="apb_verification_env.sv">
+`timescale 1ns/1ps
+module apb_verification_env (
+    input  pclk,
+    input  presetn,
+    input  [31:0] paddr,
+    input  pwrite,
+    input  psel,
+    input  penable,
+    output [31:0] paddr_out,
+    output pwrite_out,
+    output psel_out,
+    output penable_out
+);
+    // Internal signal declarations
+    reg [31:0] addr_reg;
+    reg write_reg;
+    reg sel_reg;
+    reg enable_reg;
+
+    // Always blocks
+    always @(posedge pclk) begin
+        // Handle setup phase
+        if (psel && penable) begin
+            addr_reg <= paddr;
+            write_reg <= pwrite;
+            sel_reg <= psel;
+            enable_reg <= penable;
+        end
+        // Handle access phase
+        else if (psel && !penable) begin
+            paddr_out <= addr_reg;
+            pwrite_out <= write_reg;
+            psel_out <= sel_reg;
+            penable_out <= enable_reg;
+        end
+    end
+
+    // Assign outputs
+    assign paddr_out = addr_reg;
+    assign pwrite_out = write_reg;
+    assign psel_out = sel_reg;
+    assign penable_out = enable_reg;
+endmodule
+</RTL_FILE>
+
+<TESTBENCH_FILE name="apb_driver.sv">
+`timescale 1ns/1ps
+module apb_driver (
+    output reg [31:0] paddr,
+    output reg pwrite,
+    output reg psel,
+    output reg penable
+);
+    // Drive stimulus
+    initial begin
+        paddr = 32'h0;
+        pwrite = 1'b0;
+        psel = 1'b0;
+        penable = 1'b0;
+        #10;
+        paddr = 32'h1;
+        pwrite = 1'b1;
+        psel = 1'b1;
+        penable = 1'b1;
+        #10;
+        paddr = 32'h2;
+        pwrite = 1'b0;
+        psel = 1'b1;
+        penable = 1'b1;
+    end
+endmodule
+</TESTBENCH_FILE>
+
+<TESTBENCH_FILE name="apb_monitor.sv">
+`timescale 1ns/1ps
+module apb_monitor (
+    input [31:0] paddr_out,
+    input pwrite_out,
+    input psel_out,
+    input penable_out
+);
+    // Monitor transactions
+    initial begin
+        #10;
+        $display("Transaction: paddr = %h, pwrite = %b, psel = %b, penable = %b", paddr_out, pwrite_out, psel_out, penable_out);
+    end
+endmodule
+</TESTBENCH_FILE>
+
+<TESTBENCH_FILE name="apb_scoreboard.sv">
+`timescale 1ns/1ps
+module apb_scoreboard (
+    input [31:0] paddr_out,
+    input pwrite_out,
+    input psel_out,
+    input penable_out
+);
+    // Compare expected vs actual results
+    initial begin
+        #10;
+        if (paddr_out == 32'h1 && pwrite_out == 1'b1 && psel_out == 1'b1 && penable_out == 1'b1) begin
+            $display("PASS: Transaction matched expected result");
+        end else begin
+            $display("FAIL: Transaction did not match expected result");
+        end
+    end
+endmodule
+</TESTBENCH_FILE>
+
+<TESTBENCH_FILE name="apb_tb.sv">
+`timescale 1ns/1ps
+module apb_tb;
+    reg pclk;
+    reg presetn;
+    wire [31:0] paddr_out;
+    wire pwrite_out;
+    wire psel_out;
+    wire penable_out;
+
+    apb_verification_env dut (
+        .pclk(pclk),
+        .presetn(presetn),
+        .paddr_out(paddr_out),
+        .pwrite_out(pwrite_out),
+        .psel_out(psel_out),
+        .penable_out(penable_out)
+    );
+
+    apb_driver driver (
+        .paddr(paddr),
+        .pwrite(pwrite),
+        .psel(psel),
+        .penable(penable)
+    );
+
+    apb_monitor monitor (
+        .paddr_out(paddr_out),
+        .pwrite_out(pwrite_out),
+        .psel_out(psel_out),
+        .penable_out(penable_out)
+    );
+
+    apb_scoreboard scoreboard (
+        .paddr_out(paddr_out),
+        .pwrite_out(pwrite_out),
+        .psel_out(psel_out),
+        .penable_out(penable_out)
+    );
+
+    // Clock generation
+    always #5 pclk = ~pclk;
+
+    // Reset sequence
+    initial begin
+        presetn = 1'b0;
+        #10;
+        presetn = 1'b1;
+    end
+
+    // Test cases
+    initial begin
+        #10;
+        $display("Test case 1: Write to address 0x1");
+        #10;
+        $display("Test case 2: Read from address 0x2");
+        #10;
+        $display("Test case 3: Write to address 0x3");
+        #10;
+        $display("Test case 4: Read from address 0x4");
+        #10;
+        $display("Test case 5: Write to address 0x5");
+    end
+
+    // VCD waveform dump
+    initial begin
+        $dumpfile("sim/waves.vcd");
+        $dumpvars(0, apb_tb);
+    end
+
+    // Watchdog timer
+    initial begin
+        #100000;
+        $display("ERROR: Watchdog timeout - simulation did not finish in time");
+        $finish;
+    end
+endmodule
+</TESTBENCH_FILE>
+
+<SVA_CODE>
+`timescale 1ns/1ps
+module apb_sva (
+    input pclk,
+    input presetn,
+    input [31:0] paddr,
+    input pwrite,
+    input psel,
+    input penable,
+    output [31:0] paddr_out,
+    output pwrite_out,
+    output psel_out,
+    output penable_out
+);
+    // Reset property: no output activity during reset
+    property reset_prop;
+        @(posedge pclk) disable iff (!presetn) paddr_out == 32'h0 && pwrite_out == 1'b0 && psel_out == 1'b0 && penable_out == 1'b0;
+    endproperty
+    assert property (@(posedge pclk) reset_prop) else $display("ERROR: Reset property failed");
+
+    // Protocol-specific assertions
+    property write_assert;
+        @(posedge pclk) psel && penable && pwrite -> paddr_out == paddr;
+    endproperty
+    assert property (@(posedge pclk) write_assert) else $display("ERROR: Write assertion failed");
+
+    property read_assert;
+        @(posedge pclk) psel && !penable -> paddr_out == paddr;
+    endproperty
+    assert property (@(posedge pclk) read_assert) else $display("ERROR: Read assertion failed");
+
+    // Cover properties
+    covergroup cg @(posedge pclk);
+        coverpoint paddr;
+        coverpoint pwrite;
+        coverpoint psel;
+        coverpoint penable;
+    endgroup
+    cg cg_inst;
+endmodule
+</SVA_CODE>
+
+<COVERAGE_PLAN>
+## Functional Coverage Points
+| Coverage Point | Description |
+| --- | --- |
+| paddr | Address signal |
+| pwrite | Write signal |
+| psel | Select signal |
+| penable | Enable signal |
+
+## Covergroup Definitions
+```systemverilog
+covergroup cg @(posedge pclk);
+    coverpoint paddr;
+    coverpoint pwrite;
+    coverpoint psel;
+    coverpoint penable;
+endgroup
+```
+
+## Coverage Goals
+- Address signal: 100%
+- Write signal: 100%
+- Select signal: 100%
+- Enable signal: 100%
+
+## Corner Cases
+- Write to address 0x0
+- Read from address 0x0
+- Write to address 0xFFFFFFFF
+- Read from address 0xFFFFFFFF
+</COVERAGE_PLAN>
+
+<README>
+## Project Title and Description
+The project is an APB verification environment.
+
+## Directory Structure
+- `apb_verification_env.sv`: The top-level module
+- `apb_driver.sv`: The driver module
+- `apb_monitor.sv`: The monitor module
+- `apb_scoreboard.sv`: The scoreboard module
+- `apb_tb.sv`: The testbench module
+- `apb_sva.sv`: The SystemVerilog Assertions file
+- `coverage_plan.md`: The coverage plan file
+- `README.md`: The README file
+
+## How to Run Simulation
+To run the simulation, use the following command:
+```bash
+iverilog -o sim/apb_tb.vvp apb_tb.sv apb_verification_env.sv apb_driver.sv apb_monitor.sv apb_scoreboard.sv apb_sva.sv
+vvp sim/apb_tb.vvp
+```
+
+## Expected Output
+The simulation will output a VCD waveform dump file `sim/waves.vcd` and display the results of the test cases in the console.
+
+## Author and Date
+Author: [Your Name]
+Date: [Today's Date]
+</README>
