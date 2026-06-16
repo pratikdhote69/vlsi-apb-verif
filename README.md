@@ -1,5 +1,8 @@
 # APB3 Slave Verification Environment
 
+![CI Status](https://github.com/pratikdhote69/vlsi-apb-verif/actions/workflows/ci.yml/badge.svg)
+
+
 This project contains a production-ready, synthesizable **AMBA APB3 Slave** RTL design and a complete, lightweight, non-UVM SystemVerilog verification environment.
 
 ## Directory Structure
