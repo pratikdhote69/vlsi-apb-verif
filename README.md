@@ -1,4 +1,7 @@
 # APB Verification Environment
+
+![CI Status](https://github.com/pratikdhote69/vlsi-apb-verif/actions/workflows/ci.yml/badge.svg)
+
 ## Project Description
 The APB verification environment is a set of modules designed to verify the functionality of an APB slave module.
 
