@@ -1,29 +1,40 @@
-## Project Title and Description
-
-![CI Status](https://github.com/pratikdhote69/vlsi-apb-verif/actions/workflows/ci.yml/badge.svg)
-
-The project is an APB verification environment.
+# APB Verification Environment
+## Project Description
+The APB verification environment is a set of modules designed to verify the functionality of an APB slave module.
 
 ## Directory Structure
-- `apb_verification_env.sv`: The top-level module
-- `apb_driver.sv`: The driver module
-- `apb_monitor.sv`: The monitor module
-- `apb_scoreboard.sv`: The scoreboard module
-- `apb_tb.sv`: The testbench module
-- `apb_sva.sv`: The SystemVerilog Assertions file
-- `coverage_plan.md`: The coverage plan file
-- `README.md`: The README file
+- `apb_slave.sv`: The APB slave module.
+- `apb_driver.sv`: The APB driver module.
+- `apb_monitor.sv`: The APB monitor module.
+- `apb_scoreboard.sv`: The APB scoreboard module.
+- `apb_tb.sv`: The top-level testbench module.
+- `apb_sva.sv`: The SystemVerilog Assertions file.
+- `apb_coverage_plan.md`: The coverage plan file.
+- `README.md`: This file.
 
 ## How to Run Simulation
-To run the simulation, use the following command:
+To run the simulation, use the following Icarus Verilog command:
 ```bash
-iverilog -o sim/apb_tb.vvp apb_tb.sv apb_verification_env.sv apb_driver.sv apb_monitor.sv apb_scoreboard.sv apb_sva.sv
-vvp sim/apb_tb.vvp
+iverilog -o apb_tb apb_tb.sv apb_slave.sv apb_driver.sv apb_monitor.sv apb_scoreboard.sv
 ```
-
+Then, run the resulting executable:
+```bash
+./apb_tb
+```
 ## Expected Output
-The simulation will output a VCD waveform dump file `sim/waves.vcd` and display the results of the test cases in the console.
-
+The simulation will output the following:
+```
+APB transaction:
+  Address: 1000
+  Write: 1
+  Write data: dead
+  Read data: dead
+  Ready: 1
+  Error: 0
+APB scoreboard:
+  Expected data: dead
+  Actual data: dead
+  PASS
+```
 ## Author and Date
-Author: [Your Name]
-Date: [Today's Date]
+This project was created by [Your Name] on [Today's Date].

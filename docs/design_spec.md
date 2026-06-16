@@ -1,54 +1,84 @@
+# APB Verification Environment Design Specification
 ## Module Name and Description
-The module name is `apb_verification_env`. This module is a verification environment for the Advanced Peripheral Bus (APB) protocol.
+The APB (Advanced Peripheral Bus) verification environment consists of several modules:
+- `apb_slave`: The Design Under Test (DUT), an APB slave module.
+- `apb_driver`: A lightweight, non-UVM driver that drives stimulus into the DUT.
+- `apb_monitor`: A lightweight, non-UVM monitor that observes DUT signals and reports transactions.
+- `apb_scoreboard`: A lightweight, non-UVM scoreboard that compares expected vs actual results.
 
 ## Port List
-| Port Name | Direction | Width | Description |
-| --- | --- | --- | --- |
-| pclk | input | 1 | Clock signal |
-| presetn | input | 1 | Reset signal |
-| paddr | input | 32 | Address signal |
-| pwrite | input | 1 | Write signal |
-| psel | input | 1 | Select signal |
-| penable | input | 1 | Enable signal |
-| paddr_out | output | 32 | Address output |
-| pwrite_out | output | 1 | Write output |
-| psel_out | output | 1 | Select output |
-| penable_out | output | 1 | Enable output |
+The `apb_slave` module has the following ports:
+- `clk` (input, 1-bit): The clock signal.
+- `rst_n` (input, 1-bit): The active-low reset signal.
+- `psel` (input, 1-bit): The select signal.
+- `penable` (input, 1-bit): The enable signal.
+- `paddr` (input, 32-bit): The address signal.
+- `pwrite` (input, 1-bit): The write signal.
+- `pwdata` (input, 32-bit): The write data signal.
+- `prdata` (output, 32-bit): The read data signal.
+- `pready` (output, 1-bit): The ready signal.
+- `perr` (output, 1-bit): The error signal.
 
 ## Functional Description
-The `apb_verification_env` module is a verification environment for the APB protocol. It generates stimulus for the APB master and monitors the responses from the APB slave.
+The APB slave module responds to APB transactions. When selected (`psel` is high), it checks the address and responds accordingly.
 
 ## Timing Diagram
 ```
           +---------------+
-          |         pclk  |
+          |         clk  |
           +---------------+
-                  |
-                  |
-                  v
-+---------------+       +---------------+
-|  paddr  |  pwrite  |       |  psel  |  penable  |
-+---------------+       +---------------+
-|  paddr_out |  pwrite_out |       |  psel_out |  penable_out |
-+---------------+       +---------------+
+                  _________
+                 /         \
+                /           \
+               /             \
+              /               \
+             /                 \
+            /                   \
+           /                     \
+          /                       \
+         /                         \
+        /                           \
+       /                             \
+      /                               \
+     /                                 \
+    /                                   \
+   |                 psel          |
+   |  _______       _______     |
+   | /       \     /       \   |
+   |/         \   |/         \  |
+   |  paddr    |   |  paddr    | 
+   |  _______  |   |  _______  | 
+   |/         \|   |/         \|
+   |  pwrite   |   |  pwrite   |
+   |  _______  |   |  _______  |
+   |/         \|   |/         \|
+   |  pwdata   |   |  pwdata   |
+   |  _______  |   |  _______  |
+   |  prdata   |   |  prdata   |
+   |  _______  |   |  _______  |
+   |  pready   |   |  pready   |
+   |  _______  |   |  _______  |
+   |  perr     |   |  perr     |
+   +---------------+---------------+
 ```
 
 ## State Machine Description
-The state machine for the APB protocol has the following states:
-- IDLE: The default state
-- SETUP: The setup phase of the APB protocol
-- ACCESS: The access phase of the APB protocol
+The APB slave module has two states:
+- `IDLE`: The module is not selected.
+- `SELECTED`: The module is selected and checking the address.
 
 ## File Breakdown
-The design is split into the following files:
-- `apb_verification_env.sv`: The top-level module
-- `apb_driver.sv`: The driver module
-- `apb_monitor.sv`: The monitor module
-- `apb_scoreboard.sv`: The scoreboard module
-- `apb_tb.sv`: The testbench module
-- `apb_sva.sv`: The SystemVerilog Assertions file
-- `coverage_plan.md`: The coverage plan file
-- `README.md`: The README file
+- `apb_slave.sv`: The APB slave module.
+- `apb_driver.sv`: The APB driver module.
+- `apb_monitor.sv`: The APB monitor module.
+- `apb_scoreboard.sv`: The APB scoreboard module.
+- `apb_tb.sv`: The top-level testbench module.
+- `apb_sva.sv`: The SystemVerilog Assertions file.
+- `apb_coverage_plan.md`: The coverage plan file.
+- `README.md`: The project README file.
 
 ## Key Design Decisions
-The design uses a modular approach with separate modules for the driver, monitor, and scoreboard. The SystemVerilog Assertions file is used to verify the correctness of the APB protocol.
+- The APB slave module is designed to respond to APB transactions.
+- The APB driver module is designed to drive stimulus into the DUT.
+- The APB monitor module is designed to observe DUT signals and report transactions.
+- The APB scoreboard module is designed to compare expected vs actual results.

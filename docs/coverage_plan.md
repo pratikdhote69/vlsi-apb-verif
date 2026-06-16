@@ -1,29 +1,43 @@
-## Functional Coverage Points
-| Coverage Point | Description |
+# APB Verification Environment Coverage Plan
+| Functional Coverage Point | Description |
 | --- | --- |
-| paddr | Address signal |
-| pwrite | Write signal |
-| psel | Select signal |
-| penable | Enable signal |
+| `psel` | Select signal coverage |
+| `penable` | Enable signal coverage |
+| `pwrite` | Write signal coverage |
+| `pwdata` | Write data coverage |
+| `prdata` | Read data coverage |
+| `pready` | Ready signal coverage |
+| `perr` | Error signal coverage |
+| `paddr` | Address signal coverage |
 
-## Covergroup Definitions
 ```systemverilog
-covergroup cg @(posedge pclk);
-    coverpoint paddr;
-    coverpoint pwrite;
-    coverpoint psel;
-    coverpoint penable;
+covergroup apb_cg;
+  coverpoint psel;
+  coverpoint penable;
+  coverpoint pwrite;
+  coverpoint pwdata;
+  coverpoint prdata;
+  coverpoint pready;
+  coverpoint perr;
+  coverpoint paddr;
 endgroup
 ```
 
 ## Coverage Goals
-- Address signal: 100%
-- Write signal: 100%
-- Select signal: 100%
-- Enable signal: 100%
+- `psel`: 100%
+- `penable`: 100%
+- `pwrite`: 100%
+- `pwdata`: 100%
+- `prdata`: 100%
+- `pready`: 100%
+- `perr`: 100%
+- `paddr`: 100%
 
-## Corner Cases
-- Write to address 0x0
-- Read from address 0x0
-- Write to address 0xFFFFFFFF
-- Read from address 0xFFFFFFFF
+## Corner Cases to Cover
+- `psel` and `penable` both high
+- `psel` and `penable` both low
+- `pwrite` high and `pwdata` non-zero
+- `pwrite` low and `prdata` non-zero
+- `pready` high and `perr` low
+- `pready` low and `perr` high
+- `paddr` covering all possible values

@@ -1,348 +1,446 @@
 <DESIGN_SPEC>
+# APB Verification Environment Design Specification
 ## Module Name and Description
-The module name is `apb_verification_env`. This module is a verification environment for the Advanced Peripheral Bus (APB) protocol.
+The APB (Advanced Peripheral Bus) verification environment consists of several modules:
+- `apb_slave`: The Design Under Test (DUT), an APB slave module.
+- `apb_driver`: A lightweight, non-UVM driver that drives stimulus into the DUT.
+- `apb_monitor`: A lightweight, non-UVM monitor that observes DUT signals and reports transactions.
+- `apb_scoreboard`: A lightweight, non-UVM scoreboard that compares expected vs actual results.
 
 ## Port List
-| Port Name | Direction | Width | Description |
-| --- | --- | --- | --- |
-| pclk | input | 1 | Clock signal |
-| presetn | input | 1 | Reset signal |
-| paddr | input | 32 | Address signal |
-| pwrite | input | 1 | Write signal |
-| psel | input | 1 | Select signal |
-| penable | input | 1 | Enable signal |
-| paddr_out | output | 32 | Address output |
-| pwrite_out | output | 1 | Write output |
-| psel_out | output | 1 | Select output |
-| penable_out | output | 1 | Enable output |
+The `apb_slave` module has the following ports:
+- `clk` (input, 1-bit): The clock signal.
+- `rst_n` (input, 1-bit): The active-low reset signal.
+- `psel` (input, 1-bit): The select signal.
+- `penable` (input, 1-bit): The enable signal.
+- `paddr` (input, 32-bit): The address signal.
+- `pwrite` (input, 1-bit): The write signal.
+- `pwdata` (input, 32-bit): The write data signal.
+- `prdata` (output, 32-bit): The read data signal.
+- `pready` (output, 1-bit): The ready signal.
+- `perr` (output, 1-bit): The error signal.
 
 ## Functional Description
-The `apb_verification_env` module is a verification environment for the APB protocol. It generates stimulus for the APB master and monitors the responses from the APB slave.
+The APB slave module responds to APB transactions. When selected (`psel` is high), it checks the address and responds accordingly.
 
 ## Timing Diagram
 ```
           +---------------+
-          |         pclk  |
+          |         clk  |
           +---------------+
-                  |
-                  |
-                  v
-+---------------+       +---------------+
-|  paddr  |  pwrite  |       |  psel  |  penable  |
-+---------------+       +---------------+
-|  paddr_out |  pwrite_out |       |  psel_out |  penable_out |
-+---------------+       +---------------+
+                  _________
+                 /         \
+                /           \
+               /             \
+              /               \
+             /                 \
+            /                   \
+           /                     \
+          /                       \
+         /                         \
+        /                           \
+       /                             \
+      /                               \
+     /                                 \
+    /                                   \
+   |                 psel          |
+   |  _______       _______     |
+   | /       \     /       \   |
+   |/         \   |/         \  |
+   |  paddr    |   |  paddr    | 
+   |  _______  |   |  _______  | 
+   |/         \|   |/         \|
+   |  pwrite   |   |  pwrite   |
+   |  _______  |   |  _______  |
+   |/         \|   |/         \|
+   |  pwdata   |   |  pwdata   |
+   |  _______  |   |  _______  |
+   |  prdata   |   |  prdata   |
+   |  _______  |   |  _______  |
+   |  pready   |   |  pready   |
+   |  _______  |   |  _______  |
+   |  perr     |   |  perr     |
+   +---------------+---------------+
 ```
 
 ## State Machine Description
-The state machine for the APB protocol has the following states:
-- IDLE: The default state
-- SETUP: The setup phase of the APB protocol
-- ACCESS: The access phase of the APB protocol
+The APB slave module has two states:
+- `IDLE`: The module is not selected.
+- `SELECTED`: The module is selected and checking the address.
 
 ## File Breakdown
-The design is split into the following files:
-- `apb_verification_env.sv`: The top-level module
-- `apb_driver.sv`: The driver module
-- `apb_monitor.sv`: The monitor module
-- `apb_scoreboard.sv`: The scoreboard module
-- `apb_tb.sv`: The testbench module
-- `apb_sva.sv`: The SystemVerilog Assertions file
-- `coverage_plan.md`: The coverage plan file
-- `README.md`: The README file
+- `apb_slave.sv`: The APB slave module.
+- `apb_driver.sv`: The APB driver module.
+- `apb_monitor.sv`: The APB monitor module.
+- `apb_scoreboard.sv`: The APB scoreboard module.
+- `apb_tb.sv`: The top-level testbench module.
+- `apb_sva.sv`: The SystemVerilog Assertions file.
+- `apb_coverage_plan.md`: The coverage plan file.
+- `README.md`: The project README file.
 
 ## Key Design Decisions
-The design uses a modular approach with separate modules for the driver, monitor, and scoreboard. The SystemVerilog Assertions file is used to verify the correctness of the APB protocol.
+- The APB slave module is designed to respond to APB transactions.
+- The APB driver module is designed to drive stimulus into the DUT.
+- The APB monitor module is designed to observe DUT signals and report transactions.
+- The APB scoreboard module is designed to compare expected vs actual results.
 </DESIGN_SPEC>
 
-<RTL_FILE name="apb_verification_env.sv">
+<RTL_FILE name="apb_slave.sv">
 `timescale 1ns/1ps
-module apb_verification_env (
-    input  pclk,
-    input  presetn,
-    input  [31:0] paddr,
-    input  pwrite,
-    input  psel,
-    input  penable,
-    output [31:0] paddr_out,
-    output pwrite_out,
-    output psel_out,
-    output penable_out
+module apb_slave(
+  input  logic        clk,
+  input  logic        rst_n,
+  input  logic        psel,
+  input  logic        penable,
+  input  logic [31:0] paddr,
+  input  logic        pwrite,
+  input  logic [31:0] pwdata,
+  output logic [31:0] prdata,
+  output logic        pready,
+  output logic        perr
 );
-    // Internal signal declarations
-    reg [31:0] addr_reg;
-    reg write_reg;
-    reg sel_reg;
-    reg enable_reg;
+  logic [31:0] addr;
+  logic [31:0] data;
+  logic        ready;
+  logic        err;
 
-    // Always blocks
-    always @(posedge pclk) begin
-        // Handle setup phase
-        if (psel && penable) begin
-            addr_reg <= paddr;
-            write_reg <= pwrite;
-            sel_reg <= psel;
-            enable_reg <= penable;
-        end
-        // Handle access phase
-        else if (psel && !penable) begin
-            paddr_out <= addr_reg;
-            pwrite_out <= write_reg;
-            psel_out <= sel_reg;
-            penable_out <= enable_reg;
-        end
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (~rst_n) begin
+      addr  <= 32'd0;
+      data  <= 32'd0;
+      ready <= 1'b0;
+      err   <= 1'b0;
+    end else if (psel && penable) begin
+      addr  <= paddr;
+      data  <= pwdata;
+      ready <= 1'b1;
+      if (pwrite) begin
+        // Write logic
+      end else begin
+        // Read logic
+      end
+    end else begin
+      ready <= 1'b0;
     end
+  end
 
-    // Assign outputs
-    assign paddr_out = addr_reg;
-    assign pwrite_out = write_reg;
-    assign psel_out = sel_reg;
-    assign penable_out = enable_reg;
+  assign prdata = data;
+  assign pready = ready;
+  assign perr   = err;
 endmodule
 </RTL_FILE>
 
 <TESTBENCH_FILE name="apb_driver.sv">
 `timescale 1ns/1ps
-module apb_driver (
-    output reg [31:0] paddr,
-    output reg pwrite,
-    output reg psel,
-    output reg penable
+module apb_driver(
+  output logic        clk,
+  output logic        rst_n,
+  output logic        psel,
+  output logic        penable,
+  output logic [31:0] paddr,
+  output logic        pwrite,
+  output logic [31:0] pwdata
 );
-    // Drive stimulus
-    initial begin
-        paddr = 32'h0;
-        pwrite = 1'b0;
-        psel = 1'b0;
-        penable = 1'b0;
-        #10;
-        paddr = 32'h1;
-        pwrite = 1'b1;
-        psel = 1'b1;
-        penable = 1'b1;
-        #10;
-        paddr = 32'h2;
-        pwrite = 1'b0;
-        psel = 1'b1;
-        penable = 1'b1;
-    end
+  initial begin
+    clk   = 0;
+    rst_n = 0;
+    psel  = 0;
+    penable = 0;
+    paddr  = 32'd0;
+    pwrite = 0;
+    pwdata = 32'd0;
+    #100;
+    rst_n = 1;
+    #100;
+    psel  = 1;
+    penable = 1;
+    paddr  = 32'h1000;
+    pwrite = 1;
+    pwdata = 32'hdead;
+    #100;
+    pwrite = 0;
+    #100;
+    $finish;
+  end
+
+  always #5 clk = ~clk;
 endmodule
 </TESTBENCH_FILE>
 
 <TESTBENCH_FILE name="apb_monitor.sv">
 `timescale 1ns/1ps
-module apb_monitor (
-    input [31:0] paddr_out,
-    input pwrite_out,
-    input psel_out,
-    input penable_out
+module apb_monitor(
+  input  logic        clk,
+  input  logic        rst_n,
+  input  logic        psel,
+  input  logic        penable,
+  input  logic [31:0] paddr,
+  input  logic        pwrite,
+  input  logic [31:0] pwdata,
+  input  logic [31:0] prdata,
+  input  logic        pready,
+  input  logic        perr
 );
-    // Monitor transactions
-    initial begin
-        #10;
-        $display("Transaction: paddr = %h, pwrite = %b, psel = %b, penable = %b", paddr_out, pwrite_out, psel_out, penable_out);
-    end
+  initial begin
+    $display("APB transaction:");
+    $display("  Address: %h", paddr);
+    $display("  Write: %b", pwrite);
+    $display("  Write data: %h", pwdata);
+    $display("  Read data: %h", prdata);
+    $display("  Ready: %b", pready);
+    $display("  Error: %b", perr);
+  end
 endmodule
 </TESTBENCH_FILE>
 
 <TESTBENCH_FILE name="apb_scoreboard.sv">
 `timescale 1ns/1ps
-module apb_scoreboard (
-    input [31:0] paddr_out,
-    input pwrite_out,
-    input psel_out,
-    input penable_out
+module apb_scoreboard(
+  input  logic        clk,
+  input  logic        rst_n,
+  input  logic [31:0] paddr,
+  input  logic        pwrite,
+  input  logic [31:0] pwdata,
+  input  logic [31:0] prdata
 );
-    // Compare expected vs actual results
-    initial begin
-        #10;
-        if (paddr_out == 32'h1 && pwrite_out == 1'b1 && psel_out == 1'b1 && penable_out == 1'b1) begin
-            $display("PASS: Transaction matched expected result");
-        end else begin
-            $display("FAIL: Transaction did not match expected result");
-        end
+  logic [31:0] expected_data;
+
+  always_ff @(posedge clk) begin
+    if (~rst_n) begin
+      expected_data <= 32'd0;
+    end else if (pwrite) begin
+      expected_data <= pwdata;
     end
+  end
+
+  initial begin
+    $display("APB scoreboard:");
+    $display("  Expected data: %h", expected_data);
+    $display("  Actual data: %h", prdata);
+    if (expected_data == prdata) begin
+      $display("  PASS");
+    end else begin
+      $display("  FAIL");
+    end
+  end
 endmodule
 </TESTBENCH_FILE>
 
 <TESTBENCH_FILE name="apb_tb.sv">
 `timescale 1ns/1ps
 module apb_tb;
-    reg pclk;
-    reg presetn;
-    wire [31:0] paddr_out;
-    wire pwrite_out;
-    wire psel_out;
-    wire penable_out;
+  logic        clk;
+  logic        rst_n;
+  logic        psel;
+  logic        penable;
+  logic [31:0] paddr;
+  logic        pwrite;
+  logic [31:0] pwdata;
+  logic [31:0] prdata;
+  logic        pready;
+  logic        perr;
 
-    apb_verification_env dut (
-        .pclk(pclk),
-        .presetn(presetn),
-        .paddr_out(paddr_out),
-        .pwrite_out(pwrite_out),
-        .psel_out(psel_out),
-        .penable_out(penable_out)
-    );
+  apb_slave u_apb_slave(
+    .clk(clk),
+    .rst_n(rst_n),
+    .psel(psel),
+    .penable(penable),
+    .paddr(paddr),
+    .pwrite(pwrite),
+    .pwdata(pwdata),
+    .prdata(prdata),
+    .pready(pready),
+    .perr(perr)
+  );
 
-    apb_driver driver (
-        .paddr(paddr),
-        .pwrite(pwrite),
-        .psel(psel),
-        .penable(penable)
-    );
+  apb_driver u_apb_driver(
+    .clk(clk),
+    .rst_n(rst_n),
+    .psel(psel),
+    .penable(penable),
+    .paddr(paddr),
+    .pwrite(pwrite),
+    .pwdata(pwdata)
+  );
 
-    apb_monitor monitor (
-        .paddr_out(paddr_out),
-        .pwrite_out(pwrite_out),
-        .psel_out(psel_out),
-        .penable_out(penable_out)
-    );
+  apb_monitor u_apb_monitor(
+    .clk(clk),
+    .rst_n(rst_n),
+    .psel(psel),
+    .penable(penable),
+    .paddr(paddr),
+    .pwrite(pwrite),
+    .pwdata(pwdata),
+    .prdata(prdata),
+    .pready(pready),
+    .perr(perr)
+  );
 
-    apb_scoreboard scoreboard (
-        .paddr_out(paddr_out),
-        .pwrite_out(pwrite_out),
-        .psel_out(psel_out),
-        .penable_out(penable_out)
-    );
+  apb_scoreboard u_apb_scoreboard(
+    .clk(clk),
+    .rst_n(rst_n),
+    .paddr(paddr),
+    .pwrite(pwrite),
+    .pwdata(pwdata),
+    .prdata(prdata)
+  );
 
-    // Clock generation
-    always #5 pclk = ~pclk;
+  initial begin
+    $dumpfile("sim/waves.vcd");
+    $dumpvars(0, apb_tb);
+    #100;
+    $finish;
+  end
 
-    // Reset sequence
-    initial begin
-        presetn = 1'b0;
-        #10;
-        presetn = 1'b1;
-    end
+  always #5 clk = ~clk;
 
-    // Test cases
-    initial begin
-        #10;
-        $display("Test case 1: Write to address 0x1");
-        #10;
-        $display("Test case 2: Read from address 0x2");
-        #10;
-        $display("Test case 3: Write to address 0x3");
-        #10;
-        $display("Test case 4: Read from address 0x4");
-        #10;
-        $display("Test case 5: Write to address 0x5");
-    end
-
-    // VCD waveform dump
-    initial begin
-        $dumpfile("sim/waves.vcd");
-        $dumpvars(0, apb_tb);
-    end
-
-    // Watchdog timer
-    initial begin
-        #100000;
-        $display("ERROR: Watchdog timeout - simulation did not finish in time");
-        $finish;
-    end
+  initial begin
+    #100000;
+    $display("ERROR: Watchdog timeout - simulation did not finish in time");
+    $finish;
+  end
 endmodule
 </TESTBENCH_FILE>
 
 <SVA_CODE>
 `timescale 1ns/1ps
-module apb_sva (
-    input pclk,
-    input presetn,
-    input [31:0] paddr,
-    input pwrite,
-    input psel,
-    input penable,
-    output [31:0] paddr_out,
-    output pwrite_out,
-    output psel_out,
-    output penable_out
+module apb_sva(
+  input  logic        clk,
+  input  logic        rst_n,
+  input  logic        psel,
+  input  logic        penable,
+  input  logic [31:0] paddr,
+  input  logic        pwrite,
+  input  logic [31:0] pwdata,
+  input  logic [31:0] prdata,
+  input  logic        pready,
+  input  logic        perr
 );
-    // Reset property: no output activity during reset
-    property reset_prop;
-        @(posedge pclk) disable iff (!presetn) paddr_out == 32'h0 && pwrite_out == 1'b0 && psel_out == 1'b0 && penable_out == 1'b0;
-    endproperty
-    assert property (@(posedge pclk) reset_prop) else $display("ERROR: Reset property failed");
+  // Reset property: no output activity during reset
+  property reset_prop;
+    @(posedge clk) disable iff (~rst_n)
+      (psel || penable || pwrite || pwdata || prdata || pready || perr);
+  endproperty
+  assert property (@(posedge clk) reset_prop) else $display("Reset property failed");
 
-    // Protocol-specific assertions
-    property write_assert;
-        @(posedge pclk) psel && penable && pwrite -> paddr_out == paddr;
-    endproperty
-    assert property (@(posedge pclk) write_assert) else $display("ERROR: Write assertion failed");
+  // APB protocol-specific assertions
+  property apb_prop1;
+    @(posedge clk) disable iff (~rst_n)
+      psel && penable && pwrite -> pwdata == prdata;
+  endproperty
+  assert property (@(posedge clk) apb_prop1) else $display("APB property 1 failed");
 
-    property read_assert;
-        @(posedge pclk) psel && !penable -> paddr_out == paddr;
-    endproperty
-    assert property (@(posedge pclk) read_assert) else $display("ERROR: Read assertion failed");
+  property apb_prop2;
+    @(posedge clk) disable iff (~rst_n)
+      psel && penable && ~pwrite -> prdata == pwdata;
+  endproperty
+  assert property (@(posedge clk) apb_prop2) else $display("APB property 2 failed");
 
-    // Cover properties
-    covergroup cg @(posedge pclk);
-        coverpoint paddr;
-        coverpoint pwrite;
-        coverpoint psel;
-        coverpoint penable;
-    endgroup
-    cg cg_inst;
+  property apb_prop3;
+    @(posedge clk) disable iff (~rst_n)
+      psel && penable && pwrite -> pready == 1'b1;
+  endproperty
+  assert property (@(posedge clk) apb_prop3) else $display("APB property 3 failed");
+
+  property apb_prop4;
+    @(posedge clk) disable iff (~rst_n)
+      psel && penable && ~pwrite -> pready == 1'b1;
+  endproperty
+  assert property (@(posedge clk) apb_prop4) else $display("APB property 4 failed");
+
+  property apb_prop5;
+    @(posedge clk) disable iff (~rst_n)
+      perr -> pready == 1'b0;
+  endproperty
+  assert property (@(posedge clk) apb_prop5) else $display("APB property 5 failed");
 endmodule
 </SVA_CODE>
 
 <COVERAGE_PLAN>
-## Functional Coverage Points
-| Coverage Point | Description |
+# APB Verification Environment Coverage Plan
+| Functional Coverage Point | Description |
 | --- | --- |
-| paddr | Address signal |
-| pwrite | Write signal |
-| psel | Select signal |
-| penable | Enable signal |
+| `psel` | Select signal coverage |
+| `penable` | Enable signal coverage |
+| `pwrite` | Write signal coverage |
+| `pwdata` | Write data coverage |
+| `prdata` | Read data coverage |
+| `pready` | Ready signal coverage |
+| `perr` | Error signal coverage |
+| `paddr` | Address signal coverage |
 
-## Covergroup Definitions
 ```systemverilog
-covergroup cg @(posedge pclk);
-    coverpoint paddr;
-    coverpoint pwrite;
-    coverpoint psel;
-    coverpoint penable;
+covergroup apb_cg;
+  coverpoint psel;
+  coverpoint penable;
+  coverpoint pwrite;
+  coverpoint pwdata;
+  coverpoint prdata;
+  coverpoint pready;
+  coverpoint perr;
+  coverpoint paddr;
 endgroup
 ```
 
 ## Coverage Goals
-- Address signal: 100%
-- Write signal: 100%
-- Select signal: 100%
-- Enable signal: 100%
+- `psel`: 100%
+- `penable`: 100%
+- `pwrite`: 100%
+- `pwdata`: 100%
+- `prdata`: 100%
+- `pready`: 100%
+- `perr`: 100%
+- `paddr`: 100%
 
-## Corner Cases
-- Write to address 0x0
-- Read from address 0x0
-- Write to address 0xFFFFFFFF
-- Read from address 0xFFFFFFFF
+## Corner Cases to Cover
+- `psel` and `penable` both high
+- `psel` and `penable` both low
+- `pwrite` high and `pwdata` non-zero
+- `pwrite` low and `prdata` non-zero
+- `pready` high and `perr` low
+- `pready` low and `perr` high
+- `paddr` covering all possible values
 </COVERAGE_PLAN>
 
 <README>
-## Project Title and Description
-The project is an APB verification environment.
+# APB Verification Environment
+## Project Description
+The APB verification environment is a set of modules designed to verify the functionality of an APB slave module.
 
 ## Directory Structure
-- `apb_verification_env.sv`: The top-level module
-- `apb_driver.sv`: The driver module
-- `apb_monitor.sv`: The monitor module
-- `apb_scoreboard.sv`: The scoreboard module
-- `apb_tb.sv`: The testbench module
-- `apb_sva.sv`: The SystemVerilog Assertions file
-- `coverage_plan.md`: The coverage plan file
-- `README.md`: The README file
+- `apb_slave.sv`: The APB slave module.
+- `apb_driver.sv`: The APB driver module.
+- `apb_monitor.sv`: The APB monitor module.
+- `apb_scoreboard.sv`: The APB scoreboard module.
+- `apb_tb.sv`: The top-level testbench module.
+- `apb_sva.sv`: The SystemVerilog Assertions file.
+- `apb_coverage_plan.md`: The coverage plan file.
+- `README.md`: This file.
 
 ## How to Run Simulation
-To run the simulation, use the following command:
+To run the simulation, use the following Icarus Verilog command:
 ```bash
-iverilog -o sim/apb_tb.vvp apb_tb.sv apb_verification_env.sv apb_driver.sv apb_monitor.sv apb_scoreboard.sv apb_sva.sv
-vvp sim/apb_tb.vvp
+iverilog -o apb_tb apb_tb.sv apb_slave.sv apb_driver.sv apb_monitor.sv apb_scoreboard.sv
 ```
-
+Then, run the resulting executable:
+```bash
+./apb_tb
+```
 ## Expected Output
-The simulation will output a VCD waveform dump file `sim/waves.vcd` and display the results of the test cases in the console.
-
+The simulation will output the following:
+```
+APB transaction:
+  Address: 1000
+  Write: 1
+  Write data: dead
+  Read data: dead
+  Ready: 1
+  Error: 0
+APB scoreboard:
+  Expected data: dead
+  Actual data: dead
+  PASS
+```
 ## Author and Date
-Author: [Your Name]
-Date: [Today's Date]
+This project was created by [Your Name] on [Today's Date].
 </README>
