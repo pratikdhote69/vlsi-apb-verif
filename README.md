@@ -1,4 +1,7 @@
 ## Project Title and Description
+
+![CI Status](https://github.com/pratikdhote69/vlsi-apb-verif/actions/workflows/ci.yml/badge.svg)
+
 The project is an APB verification environment.
 
 ## Directory Structure
